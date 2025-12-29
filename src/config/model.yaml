@@ -1,0 +1,3 @@
+provider: local
+model_name: Mistral-7B-Instruct-v0.3
+api_key_env: null
