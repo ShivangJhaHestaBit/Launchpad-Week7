@@ -1,2 +1,4 @@
 .venv
 src/data/raw
+src/retriever/__pycache__
+src/pipelines/__pycache__
