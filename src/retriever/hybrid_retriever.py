@@ -45,15 +45,25 @@ class HybridRetriever:
             if score > 0
         ]
 
-    def _deduplicate(self, docs):
-        seen = set()
-        unique = []
-        for d in docs:
-            key = (d["text"], json.dumps(d["metadata"], sort_keys=True))
-            if key not in seen:
-                seen.add(key)
-                unique.append(d)
-        return unique
+    def _rrf_fusion(self, ranked_lists, top_k, k=60):
+        rrf_scores = {}
+        for docs in ranked_lists:
+            for rank, doc in enumerate(docs):
+                doc_id = (doc["text"], json.dumps(doc["metadata"], sort_keys=True))
+                if doc_id not in rrf_scores:
+                    rrf_scores[doc_id] = {
+                        "doc": doc,
+                        "score": 0.0,
+                    }
+                rrf_scores[doc_id]["score"] += 1.0 / (k + rank + 1)
+
+        fused = sorted(
+            rrf_scores.values(),
+            key=lambda x: x["score"],
+            reverse=True
+        )
+
+        return [f["doc"] for f in fused[:top_k]]
 
     def search(self, query, top_k=5, filters=None):
         query_emb = self.model.encode(
@@ -73,10 +83,13 @@ class HybridRetriever:
             }
             for s, i in zip(scores[0], indices[0])
             if i != -1
-        ]
+        ]   
 
         bm25_results = self._bm25_search(query, top_k * 2)
 
-        combined = self._deduplicate(vector_results + bm25_results)
+        fused_results = self._rrf_fusion(
+            ranked_lists=[vector_results, bm25_results],
+            top_k=top_k * 2
+        )
 
-        return self.reranker.rerank(query, combined, top_k)
+        return self.reranker.rerank(query, fused_results, top_k)
