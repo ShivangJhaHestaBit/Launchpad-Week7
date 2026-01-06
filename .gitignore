@@ -2,3 +2,5 @@
 src/data/raw
 src/retriever/__pycache__
 src/pipelines/__pycache__
+src/generator/__pycache__
+src/utils/__pycache__

@@ -1,7 +1,17 @@
-from huggingface_hub import snapshot_download
-from pathlib import Path
+import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
 
-mistral_models_path = Path.home().joinpath('mistral_models', '7B-Instruct-v0.3')
-mistral_models_path.mkdir(parents=True, exist_ok=True)
+MODEL_NAME = "mistralai/Mistral-7B-Instruct-v0.2"
 
-snapshot_download(repo_id="mistralai/Mistral-7B-Instruct-v0.3", allow_patterns=["params.json", "consolidated.safetensors", "tokenizer.model.v3"], local_dir=mistral_models_path)
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+model = AutoModelForCausalLM.from_pretrained( MODEL_NAME, device_map="auto",dtype = "auto")
+
+
+def generate(prompt: str, max_tokens: int = 512) -> str:
+    messages = f"{prompt}"
+    inputs = tokenizer( messages, return_tensors="pt").to(model.device)
+
+    with torch.no_grad():
+        outputs = model.generate(**inputs, max_new_tokens=max_tokens, do_sample=False)
+
+    return tokenizer.decode(outputs[0], skip_special_tokens=True)
