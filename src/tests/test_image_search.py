@@ -3,56 +3,50 @@ from retriever.image_search import (
     search_by_image,
     image_to_text,
 )
-
-TEST_IMAGE = "sample_1.jpeg"
-TOP_K = 5
-
-
-def print_results(title, results):
-    print(f"\n{'=' * 60}")
-    print(title)
-    print(f"{'=' * 60}")
-
-    for r in results:
-        print(f"Rank: {r['rank']} | Score: {r['score']:.4f}")
-        print(f"Image: {r.get('image_path')}")
-        print(f"Caption: {r.get('caption')}")
-        print("-" * 60)
+from pipelines.image_context_builder import ImageContextBuilder
+from generator.llm_client import generate
 
 
-def text_to_image():
-    print("\nRunning TEXT → IMAGE search")
-    query = "engineering diagram of a hydraulic system"
-    results = search_by_text(query, top_k=TOP_K)
-    print_results("TEXT → IMAGE RESULTS", results)
+def run_llm(query: str, results: list, mode: str):
+    context_payload = ImageContextBuilder().build(results)
+
+    final_prompt = f"""
+You are a helpful multimodal assistant.
+
+Use ONLY the context below to answer the question.
+If the answer cannot be determined, say "I don't know".
+
+Context:
+{context_payload["context"]}
+
+Question:
+{query}
+
+Answer:
+"""
+
+    answer = generate(final_prompt)
+
+    return {
+        "mode": mode,
+        "query": query,
+        "answer": answer.strip(),
+        "sources": context_payload["sources"],
+        "context": context_payload["context"]
+    }
 
 
-def image_to_image():
-    print("\nRunning IMAGE → IMAGE search")
-    results = search_by_image(TEST_IMAGE, top_k=TOP_K)
-    print_results("IMAGE → IMAGE RESULTS", results)
+def text_to_image_final(query: str, top_k: int = 5):
+    results = search_by_text(query, top_k=top_k)
+    return run_llm(query, results, "TEXT → IMAGE")
 
 
-def test_image_to_text():
-    print("\nRunning IMAGE → TEXT search")
-    results = image_to_text(TEST_IMAGE, top_k=TOP_K)
-
-    print(f"\n{'=' * 60}")
-    print("IMAGE → TEXT RESULTS")
-    print(f"{'=' * 60}")
-
-    for r in results:
-        print(f"Rank: {r['rank']} | Score: {r['score']:.4f}")
-        print(f"Caption: {r['caption']}")
-        print(f"OCR Text (preview): {r['ocr_text'][:200]}...")
-        print("-" * 60)
+def image_to_image_final(image_path: str, top_k: int = 5):
+    results = search_by_image(image_path, top_k=top_k)
+    query = "Describe how these images are related"
+    return run_llm(query, results, "IMAGE → IMAGE")
 
 
-def main():
-    text_to_image()
-    image_to_image()
-    test_image_to_text()
-
-
-if __name__ == "__main__":
-    main()
+def image_to_text_final(image_path: str, query: str, top_k: int = 5):
+    results = image_to_text(image_path, top_k=top_k)
+    return run_llm(query, results, "IMAGE → TEXT")

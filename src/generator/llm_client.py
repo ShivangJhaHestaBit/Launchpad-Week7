@@ -14,4 +14,9 @@ def generate(prompt: str, max_tokens: int = 512) -> str:
     with torch.no_grad():
         outputs = model.generate(**inputs, max_new_tokens=max_tokens, do_sample=False)
 
-    return tokenizer.decode(outputs[0], skip_special_tokens=True)
+    decoded = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    
+    if decoded.startswith(prompt):
+        return decoded[len(prompt):].strip()
+
+    return decoded.strip()
